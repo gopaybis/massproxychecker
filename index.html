@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <title>Proxy Checker</title>
+  <title>🔥 Proxy Checker</title>
   <style>
     body {
       background-color: #121212;
@@ -105,6 +105,8 @@
   </table>
 
   <script>
+    const API_URL = "https://prx.revip.workers.dev/";
+
     window.onload = function () {
       const saved = localStorage.getItem('proxy_results');
       if (saved) document.getElementById('result').innerHTML = saved;
@@ -172,8 +174,12 @@
 
         setTimeout(async () => {
           try {
-            const url = `https://apihealtcheck.vercel.app/api/v1?ip=${ip}&port=${port}`;
-            const res = await fetch(url);
+            const res = await fetch(API_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ip, port })
+            });
+
             const data = await res.json();
 
             if (data.proxyip) {
@@ -191,17 +197,16 @@
             protoCell.textContent = data.httpProtocol || '-';
             delayCell.textContent = data.delay || '-';
 
-            document.getElementById('active').textContent = stats.active;
-            document.getElementById('inactive').textContent = stats.inactive;
-
-            saveResultsToLocalStorage();
-            row.scrollIntoView({ behavior: 'smooth', block: 'end' });
-          } catch {
+          } catch (e) {
             statusCell.textContent = 'Error';
             statusCell.className = 'red';
             stats.inactive++;
-            document.getElementById('inactive').textContent = stats.inactive;
           }
+
+          document.getElementById('active').textContent = stats.active;
+          document.getElementById('inactive').textContent = stats.inactive;
+          saveResultsToLocalStorage();
+          row.scrollIntoView({ behavior: 'smooth', block: 'end' });
         }, 200 * i);
       }
     }
