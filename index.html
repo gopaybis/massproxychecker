@@ -1,161 +1,91 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Proxy Checker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body {
-      background-color: #121212;
-      color: #e0e0e0;
-      font-family: 'Courier New', monospace;
-      padding: 20px;
-    }
-    h2 {
-      color: #00e676;
-    }
+    body { background-color: #121212; color: #e0e0e0; font-family: monospace; padding: 20px; }
+    h2 { color: #00e676; }
     textarea, input[type="file"] {
-      background-color: #1e1e1e;
-      color: #fff;
-      border: 1px solid #444;
-      border-radius: 6px;
-      padding: 10px;
-      width: 100%;
-      margin-top: 10px;
-      font-size: 16px;
+      background: #1e1e1e; color: white; border: 1px solid #444; padding: 10px;
+      width: 100%; margin-top: 10px; border-radius: 6px;
     }
     button {
-      background-color: #00acc1;
-      border: none;
-      color: white;
-      padding: 10px 20px;
-      margin: 10px 10px 0 0;
-      font-size: 16px;
-      border-radius: 5px;
-      cursor: pointer;
-      transition: background-color 0.3s;
+      background-color: #00acc1; color: white; padding: 10px 20px;
+      border: none; margin: 10px 10px 0 0; border-radius: 5px; cursor: pointer;
     }
-    button:hover {
-      background-color: #00838f;
-    }
-    table {
-      width: 100%;
-      margin-top: 20px;
-      border-collapse: collapse;
-      background-color: #1e1e1e;
-      border-radius: 6px;
-      overflow: hidden;
-    }
-    th {
-      background-color: #263238;
-      color: #ffffff;
-      padding: 10px;
-    }
-    td {
-      padding: 10px;
-      border-bottom: 1px solid #333;
-      color: #e0e0e0;
-    }
-    .green {
-      color: #69f0ae;
-      font-weight: bold;
-    }
-    .red {
-      color: #ff5252;
-      font-weight: bold;
-    }
-    ::file-selector-button {
-      background: #444;
-      color: white;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-    }
+    button:hover { background-color: #00838f; }
+    table { width: 100%; margin-top: 20px; border-collapse: collapse; background: #1e1e1e; }
+    th, td { padding: 10px; border-bottom: 1px solid #333; }
+    th { background: #263238; }
+    .green { color: #69f0ae; font-weight: bold; }
+    .red { color: #ff5252; font-weight: bold; }
+    #chart { max-width: 300px; max-height: 300px; margin: 20px auto; }
   </style>
 </head>
 <body>
   <h2>🔥 Proxy Checker</h2>
-  <textarea id="input" rows="6" placeholder="Masukkan proxy manual, contoh: IP:PORT\n..."></textarea>
-  <input type="file" id="fileInput" multiple accept=".txt" /><br/>
+  <textarea id="input" rows="6" placeholder="IP:PORT\n..."></textarea>
+  <input type="file" id="fileInput" multiple accept=".txt"><br>
   <button onclick="loadFromFiles()">Gabungkan Dari File</button>
   <button onclick="startCheck()">Mulai Cek</button>
   <button onclick="copyToClipboard()">Salin Proxy Aktif</button>
   <button onclick="downloadTxt()">Unduh .txt</button>
 
-  <div id="stats" style="margin-top: 20px; font-size: 16px;">
-    <b>Total:</b> <span id="total">0</span> |
-    <b>Active:</b> <span id="active">0</span> |
-    <b>Inactive:</b> <span id="inactive">0</span>
-  </div>
+  <div id="stats" style="margin-top:10px;"></div>
+  <canvas id="chart"></canvas>
 
   <table>
     <thead>
       <tr>
-        <th>No</th>
-        <th>IP</th>
-        <th>Port</th>
-        <th>Status</th>
-        <th>Country</th>
-        <th>Org</th>
-        <th>Protocol</th>
-        <th>Delay</th>
+        <th>No</th><th>IP</th><th>Port</th><th>Status</th><th>Country</th><th>Org</th><th>Protocol</th><th>Delay</th>
       </tr>
     </thead>
     <tbody id="result"></tbody>
   </table>
 
   <script>
-    // Load hasil lama jika ada
-    window.onload = function () {
-      const saved = localStorage.getItem('proxy_results');
-      if (saved) document.getElementById('result').innerHTML = saved;
+    let chart;
 
-      const stats = JSON.parse(localStorage.getItem('proxy_stats') || '{}');
-      document.getElementById('total').textContent = stats.total || 0;
-      document.getElementById('active').textContent = stats.active || 0;
-      document.getElementById('inactive').textContent = stats.inactive || 0;
+    function saveToStorage(data) {
+      localStorage.setItem("proxy_result", JSON.stringify(data));
     }
 
-    function saveResultsToLocalStorage() {
-      localStorage.setItem('proxy_results', document.getElementById('result').innerHTML);
-      localStorage.setItem('proxy_stats', JSON.stringify({
-        total: document.getElementById('total').textContent,
-        active: document.getElementById('active').textContent,
-        inactive: document.getElementById('inactive').textContent
-      }));
+    function loadFromStorage() {
+      const data = localStorage.getItem("proxy_result");
+      if (!data) return;
+      const parsed = JSON.parse(data);
+      document.getElementById("result").innerHTML = parsed.html;
+      document.getElementById("input").value = parsed.input;
+      updateStats();
     }
+
+    window.onload = loadFromStorage;
 
     async function loadFromFiles() {
       const files = document.getElementById('fileInput').files;
-      if (!files.length) return alert("Pilih minimal 1 file .txt");
+      if (!files.length) return alert("Pilih minimal 1 file");
       let allText = document.getElementById('input').value.trim();
 
       for (const file of files) {
         const text = await file.text();
-        allText += '\n' + text.trim();
+        allText += "\n" + text.trim();
       }
 
-      document.getElementById('input').value = allText.trim();
-      alert('Semua isi file berhasil digabung ke dalam textarea!');
+      const lines = [...new Set(allText.trim().split("\n").map(l => l.trim()))];
+      document.getElementById('input').value = lines.join("\n");
+      alert("Berhasil digabung tanpa duplikat!");
     }
 
     async function startCheck() {
-      const inputEl = document.getElementById('input');
-      const result = document.getElementById('result');
-      const stats = { total: 0, active: 0, inactive: 0 };
-
-      const lines = Array.from(new Set(
-        inputEl.value.trim().split('\n').map(x => x.trim()).filter(Boolean)
-      ));
-
-      inputEl.value = lines.join('\n');
-      result.innerHTML = '';
-      document.getElementById('total').textContent = lines.length;
-      document.getElementById('active').textContent = '0';
-      document.getElementById('inactive').textContent = '0';
+      const lines = [...new Set(document.getElementById("input").value.trim().split("\n").filter(Boolean))];
+      const result = document.getElementById("result");
+      result.innerHTML = "";
+      let active = 0, inactive = 0;
 
       for (let i = 0; i < lines.length; i++) {
-        const [ip, port] = lines[i].split(':');
+        const [ip, port] = lines[i].split(":");
         if (!ip || !port) continue;
 
         const row = result.insertRow();
@@ -168,74 +98,85 @@
         const orgCell = row.insertCell();
         const protoCell = row.insertCell();
         const delayCell = row.insertCell();
-
-        statusCell.textContent = '...';
+        statusCell.textContent = "Loading...";
 
         setTimeout(async () => {
           try {
-            const res = await fetch('https://apihealtcheck.vercel.app/api/v1?ip=' + ip + '&port=' + port);
+            const res = await fetch("https://apihealtcheck.vercel.app/api/v1?ip=" + ip + "&port=" + port);
             const data = await res.json();
 
             if (data.proxyip) {
-              statusCell.textContent = 'Active';
-              statusCell.className = 'green';
-              stats.active++;
+              statusCell.textContent = "Active";
+              statusCell.className = "green";
+              active++;
             } else {
-              statusCell.textContent = 'Inactive';
-              statusCell.className = 'red';
-              stats.inactive++;
+              statusCell.textContent = "Inactive";
+              statusCell.className = "red";
+              inactive++;
             }
 
-            countryCell.textContent = (data.countryCode || '-') + ' ' + (data.countryFlag || '');
-            orgCell.textContent = data.asOrganization || '-';
-            protoCell.textContent = data.httpProtocol || '-';
-            delayCell.textContent = data.delay || '-';
+            countryCell.textContent = (data.countryCode || "-") + " " + (data.countryFlag || "");
+            orgCell.textContent = data.asOrganization || "-";
+            protoCell.textContent = data.httpProtocol || "-";
+            delayCell.textContent = data.delay || "-";
 
+            updateStats(active, inactive);
+            if (i === lines.length - 1) {
+              saveToStorage({
+                html: result.innerHTML,
+                input: document.getElementById("input").value
+              });
+            }
           } catch {
-            statusCell.textContent = 'Error';
-            statusCell.className = 'red';
-            stats.inactive++;
+            statusCell.textContent = "Error";
+            statusCell.className = "red";
+            inactive++;
+            updateStats(active, inactive);
           }
-
-          document.getElementById('active').textContent = stats.active;
-          document.getElementById('inactive').textContent = stats.inactive;
-
-          saveResultsToLocalStorage();
         }, 200 * i);
       }
     }
 
+    function updateStats(a = 0, b = 0) {
+      const rows = [...document.querySelectorAll("#result tr")];
+      const active = rows.filter(r => r.querySelector(".green")).length;
+      const inactive = rows.filter(r => r.querySelector(".red")).length;
+      document.getElementById("stats").innerHTML = `<b>Active:</b> ${active} | <b>Inactive:</b> ${inactive}`;
+
+      if (chart) chart.destroy();
+      chart = new Chart(document.getElementById("chart"), {
+        type: "pie",
+        data: {
+          labels: ["Active", "Inactive"],
+          datasets: [{ data: [active, inactive], backgroundColor: ["#69f0ae", "#ff5252"] }]
+        },
+        options: {
+          plugins: { legend: { labels: { color: "white" } } }
+        }
+      });
+    }
+
     function getActiveProxies() {
-      const rows = Array.from(document.querySelectorAll('#result tr'));
-      return rows
-        .filter(r => r.querySelector('.green'))
+      return [...document.querySelectorAll("#result tr")]
+        .filter(r => r.querySelector(".green"))
         .map(r => {
-          const cells = r.querySelectorAll('td');
-          const country = (cells[4].textContent || '').split(' ')[0];
-          return [
-            cells[1].textContent,
-            cells[2].textContent,
-            country || '-',
-            cells[5].textContent || '-'
-          ].join(',');
-        }).sort((a, b) => {
-          const aCode = a.split(',')[2] || '';
-          const bCode = b.split(',')[2] || '';
-          return aCode.localeCompare(bCode);
-        });
+          const tds = r.querySelectorAll("td");
+          const cc = (tds[4].textContent || "-").split(" ")[0];
+          return [tds[1].textContent, tds[2].textContent, cc, tds[5].textContent].join(",");
+        }).sort((a, b) => a.split(",")[2].localeCompare(b.split(",")[2]));
     }
 
     function copyToClipboard() {
-      const proxies = getActiveProxies().join('\n');
-      navigator.clipboard.writeText(proxies).then(() => alert('Disalin ke clipboard!'));
+      const proxies = getActiveProxies().join("\n");
+      navigator.clipboard.writeText(proxies).then(() => alert("Disalin!"));
     }
 
     function downloadTxt() {
-      const proxies = getActiveProxies().join('\n');
-      const blob = new Blob([proxies], { type: 'text/plain' });
-      const a = document.createElement('a');
+      const proxies = getActiveProxies().join("\n");
+      const blob = new Blob([proxies], { type: "text/plain" });
+      const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = 'active_proxies.txt';
+      a.download = "active_proxies.txt";
       a.click();
     }
   </script>
