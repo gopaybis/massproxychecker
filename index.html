@@ -105,7 +105,6 @@
   </table>
 
   <script>
-    // Load hasil lama jika ada
     window.onload = function () {
       const saved = localStorage.getItem('proxy_results');
       if (saved) document.getElementById('result').innerHTML = saved;
@@ -173,7 +172,8 @@
 
         setTimeout(async () => {
           try {
-            const res = await fetch('https://apihealtcheck.vercel.app/api/v1?ip=' + ip + '&port=' + port);
+            const url = `https://apihealtcheck.vercel.app/api/v1?ip=${ip}&port=${port}`;
+            const res = await fetch(url);
             const data = await res.json();
 
             if (data.proxyip) {
@@ -191,16 +191,17 @@
             protoCell.textContent = data.httpProtocol || '-';
             delayCell.textContent = data.delay || '-';
 
+            document.getElementById('active').textContent = stats.active;
+            document.getElementById('inactive').textContent = stats.inactive;
+
+            saveResultsToLocalStorage();
+            row.scrollIntoView({ behavior: 'smooth', block: 'end' });
           } catch {
             statusCell.textContent = 'Error';
             statusCell.className = 'red';
             stats.inactive++;
+            document.getElementById('inactive').textContent = stats.inactive;
           }
-
-          document.getElementById('active').textContent = stats.active;
-          document.getElementById('inactive').textContent = stats.inactive;
-
-          saveResultsToLocalStorage();
         }, 200 * i);
       }
     }
