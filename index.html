@@ -5,14 +5,14 @@
   <title>Proxy Checker</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { background-color: #121212; color: #e0e0e0; font-family: monospace; padding: 20px; }
+    body { background: #121212; color: #e0e0e0; font-family: monospace; padding: 20px; }
     h2 { color: #00e676; }
     textarea, input[type="file"] {
-      background: #1e1e1e; color: white; border: 1px solid #444; padding: 10px;
-      width: 100%; margin-top: 10px; border-radius: 6px;
+      background: #1e1e1e; color: white; border: 1px solid #444;
+      padding: 10px; width: 100%; margin-top: 10px; border-radius: 6px;
     }
     button {
-      background-color: #00acc1; color: white; padding: 10px 20px;
+      background: #00acc1; color: white; padding: 10px 20px;
       border: none; margin: 10px 10px 0 0; border-radius: 5px; cursor: pointer;
     }
     button:hover { background-color: #00838f; }
@@ -21,7 +21,7 @@
     th { background: #263238; }
     .green { color: #69f0ae; font-weight: bold; }
     .red { color: #ff5252; font-weight: bold; }
-    #chart { max-width: 300px; max-height: 300px; margin: 20px auto; }
+    #chart { max-width: 280px; max-height: 280px; margin: 20px auto; }
   </style>
 </head>
 <body>
@@ -49,16 +49,24 @@
     let chart;
 
     function saveToStorage(data) {
-      localStorage.setItem("proxy_result", JSON.stringify(data));
+      try {
+        localStorage.setItem("proxy_result", JSON.stringify(data));
+      } catch (e) {
+        console.warn("Gagal simpan ke localStorage", e);
+      }
     }
 
     function loadFromStorage() {
       const data = localStorage.getItem("proxy_result");
       if (!data) return;
-      const parsed = JSON.parse(data);
-      document.getElementById("result").innerHTML = parsed.html;
-      document.getElementById("input").value = parsed.input;
-      updateStats();
+      try {
+        const parsed = JSON.parse(data);
+        document.getElementById("result").innerHTML = parsed.html || "";
+        document.getElementById("input").value = parsed.input || "";
+        updateStats();
+      } catch {
+        localStorage.removeItem("proxy_result");
+      }
     }
 
     window.onload = loadFromStorage;
@@ -73,9 +81,9 @@
         allText += "\n" + text.trim();
       }
 
-      const lines = [...new Set(allText.trim().split("\n").map(l => l.trim()))];
+      const lines = [...new Set(allText.trim().split("\n").map(l => l.trim()).filter(Boolean))];
       document.getElementById('input').value = lines.join("\n");
-      alert("Berhasil digabung tanpa duplikat!");
+      alert("File digabung & duplikat dihapus!");
     }
 
     async function startCheck() {
@@ -102,7 +110,7 @@
 
         setTimeout(async () => {
           try {
-            const res = await fetch("https://apihealtcheck.vercel.app/api/v1?ip=" + ip + "&port=" + port);
+            const res = await fetch(`https://apihealtcheck.vercel.app/api/v1?ip=${ip}&port=${port}`);
             const data = await res.json();
 
             if (data.proxyip) {
@@ -115,19 +123,21 @@
               inactive++;
             }
 
-            countryCell.textContent = (data.countryCode || "-") + " " + (data.countryFlag || "");
+            countryCell.textContent = `${data.countryCode || "-"} ${data.countryFlag || ""}`;
             orgCell.textContent = data.asOrganization || "-";
             protoCell.textContent = data.httpProtocol || "-";
-            delayCell.textContent = data.delay || "-";
+            delayCell.textContent = data.delay ?? "-";
 
             updateStats(active, inactive);
+
             if (i === lines.length - 1) {
               saveToStorage({
                 html: result.innerHTML,
                 input: document.getElementById("input").value
               });
             }
-          } catch {
+          } catch (err) {
+            console.error("Error saat fetch:", err);
             statusCell.textContent = "Error";
             statusCell.className = "red";
             inactive++;
@@ -148,10 +158,17 @@
         type: "pie",
         data: {
           labels: ["Active", "Inactive"],
-          datasets: [{ data: [active, inactive], backgroundColor: ["#69f0ae", "#ff5252"] }]
+          datasets: [{
+            data: [active, inactive],
+            backgroundColor: ["#69f0ae", "#ff5252"]
+          }]
         },
         options: {
-          plugins: { legend: { labels: { color: "white" } } }
+          plugins: {
+            legend: {
+              labels: { color: "white" }
+            }
+          }
         }
       });
     }
